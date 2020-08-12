@@ -3,6 +3,10 @@
 var canvas;
 var engine;
 var scene;
+var isWPressed = false;
+var isSPressed = false;
+var isAPressed = false;
+var isDPressed = false;
 
 document.addEventListener("DOMContentLoaded", startGame);
 
@@ -11,7 +15,10 @@ function startGame() {
   engine = new BABYLON.Engine(canvas, true);
   scene = createScene();
   modifySettings();
+  var tank = scene.getMeshByName("HeroTank");
   var toRander = function () {
+    // tank.position.z += 5;
+    tank.move();
     scene.render();
   };
   engine.runRenderLoop(toRander);
@@ -20,14 +27,11 @@ function startGame() {
 var createScene = function () {
   var scene = new BABYLON.Scene(engine);
   var ground = createGround(scene);
-
-  var camera = createFreeCamera(scene);
-
-  var light0 = new BABYLON.DirectionalLight(
-    "dir0",
-    new BABYLON.Vector3(-0.1, -1, 0),
-    scene
-  );
+  var freeCamera = createFreeCamera(scene);
+  var tank = createTank(scene);
+  var folllowCamera = createFollowCamera(scene, tank);
+  scene.activeCamera = folllowCamera;
+  createLight(scene);
   return scene;
 };
 
@@ -56,6 +60,19 @@ function createGround(scene) {
   return ground;
 }
 
+function createLight(scene) {
+  var light0 = new BABYLON.DirectionalLight(
+    "dir0",
+    new BABYLON.Vector3(-0.1, -1, 0),
+    scene
+  );
+  var light1 = new BABYLON.DirectionalLight(
+    "dir1",
+    new BABYLON.Vector3(-1, -1, 0),
+    scene
+  );
+}
+
 function createFreeCamera(scene) {
   var camera = new BABYLON.FreeCamera(
     "freeCamera",
@@ -75,6 +92,81 @@ function createFreeCamera(scene) {
   camera.keysLeft.push("a".charCodeAt(0));
   camera.keysLeft.push("A".charCodeAt(0));
   return camera;
+}
+
+function createFollowCamera(scene, target) {
+  var camera = new BABYLON.FollowCamera(
+    "tankFollowCamera",
+    target.position,
+    scene,
+    target
+  );
+  camera.radius = 20; // how far from object to follow
+  camera.heightOffset = 4; // how high above the object to place the camera
+  camera.rotationOffset = 180; // the viewing angle
+  camera.cameraAcceleration = 0.5; // how fast to move
+  camera.maxCameraSpeed = 50; // speed limit
+  return camera;
+}
+
+function createTank(scene) {
+  var tank = new BABYLON.MeshBuilder.CreateBox(
+    "HeroTank",
+    { height: 1, depth: 6, width: 6 },
+    scene
+  );
+  var tankMaterial = new BABYLON.StandardMaterial("tankMaterial", scene);
+  tankMaterial.diffuseColor = new BABYLON.Color3(1, 0, 0);
+  tankMaterial.emissiveColor = new BABYLON.Color3(0, 0, 1);
+  tank.material = tankMaterial;
+  tank.position.y += 2;
+  tank.speed = 1;
+  tank.frontVector = new BABYLON.Vector3(0, 0, 1);
+  tank.move = function () {
+    var yMovement = 0;
+    // console.log(tank.position.y);
+    if (tank.position.y > 2) {
+      yMovement = -2;
+    }
+    // tank.moveWithCollisions(new BABYLON.Vector3(0, yMovement, 5));
+    if (isWPressed) {
+      tank.moveWithCollisions(
+        tank.frontVector.multiplyByFloats(tank.speed, tank.speed, tank.speed)
+      );
+    }
+    if (isSPressed) {
+      tank.moveWithCollisions(
+        tank.frontVector.multiplyByFloats(
+          -1 * tank.speed,
+          -1 * tank.speed,
+          -1 * tank.speed
+        )
+      );
+    }
+    if (isAPressed) {
+      // tank.moveWithCollisions(
+      //   new BABYLON.Vector3(-1 * tank.speed, yMovement, 0)
+      // );
+      tank.rotation.y -= 0.1;
+      tank.frontVector = new BABYLON.Vector3(
+        Math.sin(tank.rotation.y),
+        0,
+        Math.cos(tank.rotation.y)
+      );
+    }
+    if (isDPressed) {
+      // tank.moveWithCollisions(
+      //   new BABYLON.Vector3(1 * tank.speed, yMovement, 0)
+      // );
+      tank.rotation.y += 0.1;
+      tank.frontVector = new BABYLON.Vector3(
+        Math.sin(tank.rotation.y),
+        0,
+        Math.cos(tank.rotation.y)
+      );
+    }
+  };
+  return tank;
 }
 
 window.addEventListener("resize", function () {
@@ -114,3 +206,33 @@ function modifySettings() {
     }
   }
 }
+
+document.addEventListener("keydown", function (event) {
+  if (event.key == "w" || event.key == "W") {
+    isWPressed = true;
+  }
+  if (event.key == "s" || event.key == "S") {
+    isSPressed = true;
+  }
+  if (event.key == "a" || event.key == "A") {
+    isAPressed = true;
+  }
+  if (event.key == "d" || event.key == "D") {
+    isDPressed = true;
+  }
+});
+
+document.addEventListener("keyup", function (event) {
+  if (event.key == "w" || event.key == "W") {
+    isWPressed = false;
+  }
+  if (event.key == "s" || event.key == "S") {
+    isSPressed = false;
+  }
+  if (event.key == "a" || event.key == "A") {
+    isAPressed = false;
+  }
+  if (event.key == "d" || event.key == "D") {
+    isDPressed = false;
+  }
+});
