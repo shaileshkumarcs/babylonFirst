@@ -10,15 +10,48 @@ var isDPressed = false;
 
 document.addEventListener("DOMContentLoaded", startGame);
 
+class Dude {
+  constructor(dudeMesh, speed) {
+    this.dudeMesh = dudeMesh;
+    dudeMesh.Dude = this;
+    if (speed) {
+      this.speed = speed;
+    } else {
+      this.speed = 1;
+    }
+  }
+  move() {
+    var tank = scene.getMeshByName("heroTank");
+    var direction = tank.position.subtract(this.dudeMesh.position);
+    var distance = direction.length();
+    var dir = direction.normalize();
+    var alpha = Math.atan2(-1 * dir.x, -1 * dir.z);
+    this.dudeMesh.rotation.y = alpha;
+    if (distance > 30)
+      this.dudeMesh.moveWithCollisions(
+        dir.multiplyByFloats(this.speed, this.speed, this.speed)
+      );
+  }
+}
+
 function startGame() {
   canvas = document.getElementById("randerCanvas");
   engine = new BABYLON.Engine(canvas, true);
   scene = createScene();
   modifySettings();
-  var tank = scene.getMeshByName("HeroTank");
+  var tank = scene.getMeshByName("heroTank");
   var toRander = function () {
     // tank.position.z += 5;
     tank.move();
+    var heroDude = scene.getMeshByName("heroDude");
+    if (heroDude) {
+      heroDude.Dude.move();
+    }
+    if (scene.dudes) {
+      for (var q = 0; q < scene.dudes.length; q++) {
+        scene.dudes[q].Dude.move();
+      }
+    }
     scene.render();
   };
   engine.runRenderLoop(toRander);
@@ -32,6 +65,7 @@ var createScene = function () {
   var folllowCamera = createFollowCamera(scene, tank);
   scene.activeCamera = folllowCamera;
   createLight(scene);
+  createHeroDude(scene);
   return scene;
 };
 
@@ -111,7 +145,7 @@ function createFollowCamera(scene, target) {
 
 function createTank(scene) {
   var tank = new BABYLON.MeshBuilder.CreateBox(
-    "HeroTank",
+    "heroTank",
     { height: 1, depth: 6, width: 6 },
     scene
   );
@@ -167,6 +201,68 @@ function createTank(scene) {
     }
   };
   return tank;
+}
+
+function createHeroDude(scene) {
+  BABYLON.SceneLoader.ImportMesh(
+    "him",
+    "../models/Dude/",
+    "dude.babylon",
+    scene,
+    onDudeImported
+  );
+  function onDudeImported(newMeshes, particleSystems, skeletons) {
+    newMeshes[0].position = new BABYLON.Vector3(0, 0, 5); // The original dude
+    newMeshes[0].name = "heroDude";
+    var heroDude = newMeshes[0];
+    heroDude.scaling = new BABYLON.Vector3(0.2, 0.2, 0.2);
+    heroDude.speed = 2;
+    scene.beginAnimation(skeletons[0], 0, 120, true, 1.0);
+    console.log(heroDude);
+    var hero = new Dude(heroDude, 2);
+    scene.dudes = [];
+    for (var q = 0; q < 10; q++) {
+      scene.dudes[q] = DoClone(heroDude, skeletons, q);
+      scene.beginAnimation(scene.dudes[q].skeleton, 0, 120, true, 1.0);
+      var temp = new Dude(scene.dudes[q], 2);
+    }
+  }
+}
+
+function DoClone(original, skeletons, id) {
+  var myClone;
+  var xrand = Math.floor(Math.random() * 501) - 250;
+  var zrand = Math.floor(Math.random() * 501) - 250;
+  myClone = original.clone("clone_" + id);
+  myClone.position = new BABYLON.Vector3(xrand, 0, zrand);
+  if (!skeletons) {
+    return myClone;
+  } else {
+    if (!original.getChildren()) {
+      myClone.skeleton = skeletons[0].clone("clone_" + id + "_skeleton");
+      return myClone;
+    } else {
+      if (skeletons.length == 1) {
+        // this means one skeleton controlling/animating all the children
+        var clonedSkeleton = skeletons[0].clone("clone_" + id + "_skeleton");
+        myClone.skeleton = clonedSkeleton;
+        var numChildren = myClone.getChildren().length;
+        for (var i = 0; i < numChildren; i++) {
+          myClone.getChildren()[i].skeleton = clonedSkeleton;
+        }
+        return myClone;
+      } else if (skeletons.length == original.getChildren().length) {
+        // most probably each child has its own skeleton
+        for (var i = 0; i < myClone.getChildren().length; i++) {
+          myClone.getChildren()[i].skeleton = skeleton[i].clone(
+            "clone_" + id + "_skeleton_" + i
+          );
+        }
+        return myClone;
+      }
+    }
+  }
+  return myClone;
 }
 
 window.addEventListener("resize", function () {
